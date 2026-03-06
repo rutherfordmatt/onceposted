@@ -11,11 +11,7 @@ async function getBaseUrl(): Promise<string> {
   if (host) {
     return `${protocol}://${host}`;
   }
-  return process.env.REPLIT_DEPLOYMENT_URL
-    ? `https://${process.env.REPLIT_DEPLOYMENT_URL}`
-    : process.env.REPLIT_DEV_DOMAIN
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-    : "https://onceposted.replit.app";
+  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 }
 
 export async function generateMetadata(

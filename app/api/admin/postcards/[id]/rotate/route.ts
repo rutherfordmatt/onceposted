@@ -1,50 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getPostcardById } from "@/lib/db";
-import { Storage } from "@google-cloud/storage";
 import sharp from "sharp";
 import { thumbnailCache } from "@/lib/cache";
-
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-
-const storage = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
-      },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
-
-function getBucketName(): string {
-  const publicPaths = process.env.PUBLIC_OBJECT_SEARCH_PATHS || "";
-  const firstPath = publicPaths.split(",")[0]?.trim();
-  if (!firstPath) return "";
-  const parts = firstPath.split("/").filter(Boolean);
-  return parts[0] || "";
-}
+import { readFile, writeFile } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
 
 async function verifyAdminSession(): Promise<boolean> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("admin_session");
-    
+
     if (!sessionCookie?.value) {
       return false;
     }
 
     const decoded = Buffer.from(sessionCookie.value, "base64").toString("utf-8");
     const parts = decoded.split(":");
-    
+
     if (parts.length !== 4 || parts[0] !== "admin") {
       return false;
     }
@@ -52,7 +26,7 @@ async function verifyAdminSession(): Promise<boolean> {
     const timestamp = parseInt(parts[1], 10);
     const now = Date.now();
     const maxAge = 24 * 60 * 60 * 1000;
-    
+
     if (isNaN(timestamp) || now - timestamp > maxAge) {
       return false;
     }
@@ -63,75 +37,34 @@ async function verifyAdminSession(): Promise<boolean> {
   }
 }
 
-function extractObjectKey(filePath: string): string {
-  let key = filePath;
-  
-  if (key.startsWith("/api/images/")) {
-    key = key.replace("/api/images/", "");
-  }
-  
-  if (key.startsWith("/uploads/originals/") || key.startsWith("/uploads/thumbs/")) {
-    return "";
-  }
-  
-  if (key.startsWith("/")) {
-    key = key.slice(1);
-  }
-  
-  if (!key.startsWith("public/")) {
-    key = `public/postcards/${key}`;
-  }
-  
-  return key;
+function imagePathToLocalPath(filePath: string): string {
+  const filename = filePath.replace("/api/images/", "");
+  return path.join(process.cwd(), "public", "uploads", "postcards", filename);
 }
 
-async function rotateImagesInStorage(imagePath: string, thumbPath: string): Promise<void> {
-  const bucketName = getBucketName();
-  if (!bucketName) {
-    throw new Error("Storage bucket not configured");
+async function rotateImagesOnDisk(imagePath: string, thumbPath: string): Promise<void> {
+  const imageFile = imagePathToLocalPath(imagePath);
+  const thumbFile = imagePathToLocalPath(thumbPath);
+
+  if (!existsSync(imageFile)) {
+    throw new Error(`File not found: ${imageFile}`);
   }
-  
-  const imageKey = extractObjectKey(imagePath);
-  const thumbKey = extractObjectKey(thumbPath);
-  
-  if (!imageKey) {
-    throw new Error("Invalid image path");
-  }
-  
-  const bucket = storage.bucket(bucketName);
-  const imageFile = bucket.file(imageKey);
-  
-  const [exists] = await imageFile.exists();
-  if (!exists) {
-    throw new Error(`File not found: ${imageKey}`);
-  }
-  
-  const [imageBuffer] = await imageFile.download();
-  
+
+  const imageBuffer = await readFile(imageFile);
+
   const rotatedBuffer = await sharp(imageBuffer)
     .rotate(90)
     .jpeg({ quality: 90 })
     .toBuffer();
-  
-  await imageFile.save(rotatedBuffer, {
-    contentType: "image/jpeg",
-    resumable: false,
-  });
-  
+
+  await writeFile(imageFile, rotatedBuffer);
+
   const thumbBuffer = await sharp(rotatedBuffer)
     .resize(400, 300, { fit: "cover" })
     .jpeg({ quality: 80 })
     .toBuffer();
-  
-  if (thumbKey) {
-    const thumbFile = bucket.file(thumbKey);
-    await thumbFile.save(thumbBuffer, {
-      contentType: "image/jpeg",
-      resumable: false,
-    });
-  }
-  
-  console.log("Rotated image and thumbnail:", imageKey);
+
+  await writeFile(thumbFile, thumbBuffer);
 }
 
 export async function POST(
@@ -150,7 +83,7 @@ export async function POST(
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const side = searchParams.get("side") as "front" | "back" | null;
-    
+
     if (!side || (side !== "front" && side !== "back")) {
       return NextResponse.json(
         { error: "Invalid side parameter. Must be 'front' or 'back'" },
@@ -159,7 +92,7 @@ export async function POST(
     }
 
     const postcard = await getPostcardById(id);
-    
+
     if (!postcard) {
       return NextResponse.json(
         { error: "Postcard not found" },
@@ -168,10 +101,10 @@ export async function POST(
     }
 
     if (side === "front") {
-      await rotateImagesInStorage(postcard.frontImagePath, postcard.frontThumbPath);
+      await rotateImagesOnDisk(postcard.frontImagePath, postcard.frontThumbPath);
       thumbnailCache.invalidate(postcard.frontThumbPath);
     } else {
-      await rotateImagesInStorage(postcard.backImagePath, postcard.backThumbPath);
+      await rotateImagesOnDisk(postcard.backImagePath, postcard.backThumbPath);
       thumbnailCache.invalidate(postcard.backThumbPath);
     }
 

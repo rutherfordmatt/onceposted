@@ -27,7 +27,7 @@ async function buildAll() {
   await rm("dist", { recursive: true, force: true });
 
   console.log("Building Next.js app...");
-  execSync("npx next build --webpack", { stdio: "inherit" });
+  execSync("npx next build", { stdio: "inherit" });
 
   console.log("Building production server...");
   const pkg = JSON.parse(await readFile("package.json", "utf-8"));

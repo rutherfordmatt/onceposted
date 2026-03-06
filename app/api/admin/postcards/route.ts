@@ -1,70 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createPostcard, getAllPostcards } from "@/lib/db";
-import { Storage } from "@google-cloud/storage";
 import sharp from "sharp";
 import { v4 as uuidv4 } from "uuid";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
 
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 const ACCEPTED_MIME_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-const storage = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
-      },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
-
-function getBucketName(): string {
-  const publicPaths = process.env.PUBLIC_OBJECT_SEARCH_PATHS || "";
-  const firstPath = publicPaths.split(",")[0]?.trim();
-  if (!firstPath) {
-    throw new Error("PUBLIC_OBJECT_SEARCH_PATHS not configured");
-  }
-  const parts = firstPath.split("/").filter(Boolean);
-  return parts[0] || "";
-}
-
-async function uploadToStorage(
-  buffer: Buffer,
-  objectName: string,
-  contentType: string
-): Promise<void> {
-  const bucketName = getBucketName();
-  const bucket = storage.bucket(bucketName);
-  const file = bucket.file(objectName);
-  await file.save(buffer, {
-    contentType,
-    metadata: {
-      cacheControl: "public, max-age=31536000",
-    },
-  });
+async function saveToLocal(buffer: Buffer, filename: string): Promise<void> {
+  const uploadsDir = path.join(process.cwd(), "public", "uploads", "postcards");
+  await mkdir(uploadsDir, { recursive: true });
+  await writeFile(path.join(uploadsDir, filename), buffer);
 }
 
 async function verifyAdminSession(): Promise<boolean> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("admin_session");
-    
+
     if (!sessionCookie?.value) {
       return false;
     }
 
     const decoded = Buffer.from(sessionCookie.value, "base64").toString("utf-8");
     const parts = decoded.split(":");
-    
+
     if (parts.length !== 4 || parts[0] !== "admin") {
       return false;
     }
@@ -72,7 +34,7 @@ async function verifyAdminSession(): Promise<boolean> {
     const timestamp = parseInt(parts[1], 10);
     const now = Date.now();
     const maxAge = 24 * 60 * 60 * 1000;
-    
+
     if (isNaN(timestamp) || now - timestamp > maxAge) {
       return false;
     }
@@ -94,10 +56,10 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    
+
     const frontImage = formData.get("frontImage") as File | null;
     const backImage = formData.get("backImage") as File | null;
-    
+
     if (!frontImage || !backImage) {
       return NextResponse.json(
         { error: "Both front and back images are required" },
@@ -157,10 +119,10 @@ export async function POST(request: NextRequest) {
       .toBuffer();
 
     await Promise.all([
-      uploadToStorage(frontBuffer, `public/postcards/${id}-front.jpg`, "image/jpeg"),
-      uploadToStorage(backBuffer, `public/postcards/${id}-back.jpg`, "image/jpeg"),
-      uploadToStorage(frontThumbBuffer, `public/postcards/${id}-front-thumb.jpg`, "image/jpeg"),
-      uploadToStorage(backThumbBuffer, `public/postcards/${id}-back-thumb.jpg`, "image/jpeg"),
+      saveToLocal(frontBuffer, `${id}-front.jpg`),
+      saveToLocal(backBuffer, `${id}-back.jpg`),
+      saveToLocal(frontThumbBuffer, `${id}-front-thumb.jpg`),
+      saveToLocal(backThumbBuffer, `${id}-back-thumb.jpg`),
     ]);
 
     const scheduledForValue = formData.get("scheduledFor") as string | null;
@@ -205,7 +167,7 @@ export async function GET() {
     }
 
     const postcards = await getAllPostcards();
-    
+
     return NextResponse.json(postcards);
   } catch (error) {
     console.error("Error fetching postcards:", error);

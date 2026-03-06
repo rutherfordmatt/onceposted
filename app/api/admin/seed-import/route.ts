@@ -2,72 +2,25 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createPostcard, db } from "@/lib/db";
 import { postcards } from "@/shared/schema";
-import { readdir, readFile } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import { v4 as uuidv4 } from "uuid";
 import { existsSync } from "fs";
-import { Storage } from "@google-cloud/storage";
 import { eq, and } from "drizzle-orm";
-
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-
-const storage = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
-      },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
-
-function getBucketName(): string {
-  const publicPaths = process.env.PUBLIC_OBJECT_SEARCH_PATHS || "";
-  const firstPath = publicPaths.split(",")[0]?.trim();
-  if (!firstPath) {
-    throw new Error("PUBLIC_OBJECT_SEARCH_PATHS not configured");
-  }
-  const parts = firstPath.split("/").filter(Boolean);
-  return parts[0] || "";
-}
-
-async function uploadToStorage(
-  buffer: Buffer,
-  objectName: string,
-  contentType: string
-): Promise<void> {
-  const bucketName = getBucketName();
-  const bucket = storage.bucket(bucketName);
-  const file = bucket.file(objectName);
-  await file.save(buffer, {
-    contentType,
-    metadata: {
-      cacheControl: "public, max-age=31536000",
-    },
-  });
-}
 
 async function verifyAdminSession(): Promise<boolean> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("admin_session");
-    
+
     if (!sessionCookie?.value) {
       return false;
     }
 
     const decoded = Buffer.from(sessionCookie.value, "base64").toString("utf-8");
     const parts = decoded.split(":");
-    
+
     if (parts.length !== 4 || parts[0] !== "admin") {
       return false;
     }
@@ -75,7 +28,7 @@ async function verifyAdminSession(): Promise<boolean> {
     const timestamp = parseInt(parts[1], 10);
     const now = Date.now();
     const maxAge = 24 * 60 * 60 * 1000;
-    
+
     if (isNaN(timestamp) || now - timestamp > maxAge) {
       return false;
     }
@@ -84,6 +37,12 @@ async function verifyAdminSession(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function saveToLocal(buffer: Buffer, filename: string): Promise<void> {
+  const uploadsDir = path.join(process.cwd(), "public", "uploads", "postcards");
+  await mkdir(uploadsDir, { recursive: true });
+  await writeFile(path.join(uploadsDir, filename), buffer);
 }
 
 function extractBaseName(filename: string): string {
@@ -141,10 +100,10 @@ export async function POST() {
     const backFiles = await readdir(seedBackDir);
 
     const imageExtensions = [".jpg", ".jpeg", ".png"];
-    const frontImages = frontFiles.filter((f) => 
+    const frontImages = frontFiles.filter((f) =>
       imageExtensions.includes(path.extname(f).toLowerCase())
     );
-    const backImages = backFiles.filter((f) => 
+    const backImages = backFiles.filter((f) =>
       imageExtensions.includes(path.extname(f).toLowerCase())
     );
 
@@ -175,7 +134,7 @@ export async function POST() {
         .from(postcards)
         .where(and(eq(postcards.title, title), eq(postcards.source, "ADMIN")))
         .limit(1);
-      
+
       if (existingPostcard) {
         result.skipped++;
         result.details.push(`Skipped (title exists): ${baseName}`);
@@ -207,10 +166,10 @@ export async function POST() {
           .toBuffer();
 
         await Promise.all([
-          uploadToStorage(frontBuffer, `public/postcards/${id}-front.jpg`, "image/jpeg"),
-          uploadToStorage(backBuffer, `public/postcards/${id}-back.jpg`, "image/jpeg"),
-          uploadToStorage(frontThumbBuffer, `public/postcards/${id}-front-thumb.jpg`, "image/jpeg"),
-          uploadToStorage(backThumbBuffer, `public/postcards/${id}-back-thumb.jpg`, "image/jpeg"),
+          saveToLocal(frontBuffer, `${id}-front.jpg`),
+          saveToLocal(backBuffer, `${id}-back.jpg`),
+          saveToLocal(frontThumbBuffer, `${id}-front-thumb.jpg`),
+          saveToLocal(backThumbBuffer, `${id}-back-thumb.jpg`),
         ]);
 
         await createPostcard({

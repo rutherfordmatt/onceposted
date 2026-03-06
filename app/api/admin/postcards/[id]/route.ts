@@ -1,48 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getPostcardById, updatePostcard, deletePostcard, generateAndSetSlug } from "@/lib/db";
-import { Storage } from "@google-cloud/storage";
-
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-
-const storage = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
-      },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
-
-function getBucketName(): string {
-  const publicPaths = process.env.PUBLIC_OBJECT_SEARCH_PATHS || "";
-  const firstPath = publicPaths.split(",")[0]?.trim();
-  if (!firstPath) return "";
-  const parts = firstPath.split("/").filter(Boolean);
-  return parts[0] || "";
-}
+import { unlink } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
 
 async function verifyAdminSession(): Promise<boolean> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("admin_session");
-    
+
     if (!sessionCookie?.value) {
       return false;
     }
 
     const decoded = Buffer.from(sessionCookie.value, "base64").toString("utf-8");
     const parts = decoded.split(":");
-    
+
     if (parts.length !== 4 || parts[0] !== "admin") {
       return false;
     }
@@ -50,7 +24,7 @@ async function verifyAdminSession(): Promise<boolean> {
     const timestamp = parseInt(parts[1], 10);
     const now = Date.now();
     const maxAge = 24 * 60 * 60 * 1000;
-    
+
     if (isNaN(timestamp) || now - timestamp > maxAge) {
       return false;
     }
@@ -58,6 +32,22 @@ async function verifyAdminSession(): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+function imagePathToFilename(filePath: string): string {
+  return filePath.replace("/api/images/", "");
+}
+
+async function deleteLocalFile(filePath: string): Promise<void> {
+  const filename = imagePathToFilename(filePath);
+  const fullPath = path.join(process.cwd(), "public", "uploads", "postcards", filename);
+  try {
+    if (existsSync(fullPath)) {
+      await unlink(fullPath);
+    }
+  } catch (err) {
+    console.log("Failed to delete local file:", fullPath, err);
   }
 }
 
@@ -120,7 +110,7 @@ export async function PATCH(
 
     const newTitle = body.title ?? postcard.title;
     const newLocation = body.location ?? postcard.location;
-    
+
     let scheduledFor = postcard.scheduledFor;
     if (body.scheduledFor !== undefined) {
       scheduledFor = body.scheduledFor ? new Date(body.scheduledFor) : null;
@@ -151,48 +141,6 @@ export async function PATCH(
   }
 }
 
-function extractObjectKey(filePath: string): string {
-  let key = filePath;
-  
-  if (key.startsWith("/api/images/")) {
-    key = key.replace("/api/images/", "");
-  }
-  
-  if (key.startsWith("/uploads/originals/") || key.startsWith("/uploads/thumbs/")) {
-    return "";
-  }
-  
-  if (key.startsWith("/")) {
-    key = key.slice(1);
-  }
-  
-  if (!key.startsWith("public/")) {
-    key = `public/postcards/${key}`;
-  }
-  
-  return key;
-}
-
-async function deleteObjectStorageFile(filePath: string): Promise<void> {
-  const bucketName = getBucketName();
-  if (!bucketName) return;
-  
-  const objectKey = extractObjectKey(filePath);
-  if (!objectKey) return;
-  
-  try {
-    const bucket = storage.bucket(bucketName);
-    const file = bucket.file(objectKey);
-    const [exists] = await file.exists();
-    if (exists) {
-      await file.delete();
-      console.log("Deleted object storage file:", objectKey);
-    }
-  } catch (err) {
-    console.log("Failed to delete object storage file:", objectKey, err);
-  }
-}
-
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -208,7 +156,7 @@ export async function DELETE(
 
     const { id } = await params;
     const postcard = await getPostcardById(id);
-    
+
     if (!postcard) {
       return NextResponse.json(
         { error: "Postcard not found" },
@@ -223,10 +171,10 @@ export async function DELETE(
       postcard.backThumbPath,
     ].filter(Boolean);
 
-    await Promise.all(imagePaths.map(path => deleteObjectStorageFile(path)));
+    await Promise.all(imagePaths.map(p => deleteLocalFile(p)));
 
     const deleted = await deletePostcard(id);
-    
+
     if (!deleted) {
       return NextResponse.json(
         { error: "Failed to delete postcard" },

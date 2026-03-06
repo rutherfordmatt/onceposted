@@ -1,56 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApprovedPostcards, createPostcard, ensureSlug } from "@/lib/db";
-import { Storage } from "@google-cloud/storage";
 import sharp from "sharp";
 import { v4 as uuidv4 } from "uuid";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
 
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 const ACCEPTED_MIME_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-const storage = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
-      },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
-
-function getBucketName(): string {
-  const publicPaths = process.env.PUBLIC_OBJECT_SEARCH_PATHS || "";
-  const firstPath = publicPaths.split(",")[0]?.trim();
-  if (!firstPath) {
-    throw new Error("PUBLIC_OBJECT_SEARCH_PATHS not configured");
-  }
-  const parts = firstPath.split("/").filter(Boolean);
-  return parts[0] || "";
-}
-
-async function uploadToStorage(
-  buffer: Buffer,
-  objectName: string,
-  contentType: string
-): Promise<void> {
-  const bucketName = getBucketName();
-  const bucket = storage.bucket(bucketName);
-  const file = bucket.file(objectName);
-  await file.save(buffer, {
-    contentType,
-    metadata: {
-      cacheControl: "public, max-age=31536000",
-    },
-  });
+async function saveToLocal(buffer: Buffer, filename: string): Promise<void> {
+  const uploadsDir = path.join(process.cwd(), "public", "uploads", "postcards");
+  await mkdir(uploadsDir, { recursive: true });
+  await writeFile(path.join(uploadsDir, filename), buffer);
 }
 
 export async function GET() {
@@ -84,17 +46,17 @@ const RATE_LIMIT_CONFIG = {
 
 export async function POST(request: NextRequest) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() 
-      || request.headers.get("x-real-ip") 
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || request.headers.get("x-real-ip")
       || "unknown";
-    
+
     const rateLimitResult = checkRateLimit(`submit:${ip}`, RATE_LIMIT_CONFIG);
-    
+
     if (!rateLimitResult.allowed) {
       const retryAfter = Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000);
       return NextResponse.json(
         { error: "Too many submissions. Please try again later." },
-        { 
+        {
           status: 429,
           headers: {
             "Retry-After": String(retryAfter),
@@ -104,10 +66,10 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    
+
     const frontImage = formData.get("frontImage") as File | null;
     const backImage = formData.get("backImage") as File | null;
-    
+
     if (!frontImage || !backImage) {
       return NextResponse.json(
         { error: "Both front and back images are required" },
@@ -192,10 +154,10 @@ export async function POST(request: NextRequest) {
       .toBuffer();
 
     await Promise.all([
-      uploadToStorage(frontBuffer, `public/postcards/${id}-front.jpg`, "image/jpeg"),
-      uploadToStorage(backBuffer, `public/postcards/${id}-back.jpg`, "image/jpeg"),
-      uploadToStorage(frontThumbBuffer, `public/postcards/${id}-front-thumb.jpg`, "image/jpeg"),
-      uploadToStorage(backThumbBuffer, `public/postcards/${id}-back-thumb.jpg`, "image/jpeg"),
+      saveToLocal(frontBuffer, `${id}-front.jpg`),
+      saveToLocal(backBuffer, `${id}-back.jpg`),
+      saveToLocal(frontThumbBuffer, `${id}-front-thumb.jpg`),
+      saveToLocal(backThumbBuffer, `${id}-back-thumb.jpg`),
     ]);
 
     const title = (formData.get("title") as string)?.trim() || null;
