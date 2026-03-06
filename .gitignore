@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.next/
+.env
+.replit
+.agents
+.local
+.config
+replit.nix
