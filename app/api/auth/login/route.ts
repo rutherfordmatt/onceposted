@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import crypto from "crypto";
 
 const SESSION_SECRET = process.env.SESSION_SECRET || "fallback-secret-key";
@@ -43,9 +42,8 @@ export async function POST(request: NextRequest) {
     }
 
     const token = createSessionToken();
-    const cookieStore = await cookies();
-    
-    cookieStore.set("admin_session", token, {
+    const response = NextResponse.json({ success: true });
+    response.cookies.set("admin_session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -53,7 +51,7 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    return NextResponse.json({ success: true });
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(
