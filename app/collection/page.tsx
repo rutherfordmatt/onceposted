@@ -72,8 +72,8 @@ function PostcardModal({ postcard, onClose }: { postcard: Postcard; onClose: () 
         className="w-full max-w-4xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div 
-          className="perspective-1000 cursor-pointer group"
+        <div
+          className="relative perspective-1000 cursor-pointer group"
           onClick={() => setIsFlipped(!isFlipped)}
         >
           <div 
@@ -88,9 +88,6 @@ function PostcardModal({ postcard, onClose }: { postcard: Postcard; onClose: () 
                 alt={postcard.title || "Vintage postcard"}
                 className="w-full h-full object-contain"
               />
-              <div className="absolute bottom-4 left-4 z-10">
-                <NewBadge createdAt={postcard.createdAt} scheduledFor={postcard.scheduledFor} />
-              </div>
               <Button
                 size="sm"
                 variant="secondary"
@@ -136,8 +133,11 @@ function PostcardModal({ postcard, onClose }: { postcard: Postcard; onClose: () 
               )}
             </div>
           </div>
+          <div className="absolute bottom-4 left-4 z-10">
+            <NewBadge createdAt={postcard.createdAt} scheduledFor={postcard.scheduledFor} />
+          </div>
         </div>
-        
+
         <div className="mt-3 text-left">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-0.5">

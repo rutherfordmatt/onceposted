@@ -48,8 +48,8 @@ function FeaturedPostcard({ postcard }: { postcard: Postcard }) {
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      <div 
-        className="perspective-1000 cursor-pointer group"
+      <div
+        className="relative perspective-1000 cursor-pointer group"
         onClick={() => setIsFlipped(!isFlipped)}
       >
         <div 
@@ -64,9 +64,6 @@ function FeaturedPostcard({ postcard }: { postcard: Postcard }) {
               alt={postcard.title || "Featured vintage postcard"}
               className="w-full h-full object-contain"
             />
-            <div className="absolute bottom-4 left-4 z-10">
-              <NewBadge createdAt={postcard.createdAt} scheduledFor={postcard.scheduledFor} />
-            </div>
             <Button
               size="sm"
               variant="secondary"
@@ -111,6 +108,9 @@ function FeaturedPostcard({ postcard }: { postcard: Postcard }) {
               </div>
             )}
           </div>
+        </div>
+        <div className="absolute bottom-4 left-4 z-10">
+          <NewBadge createdAt={postcard.createdAt} scheduledFor={postcard.scheduledFor} />
         </div>
       </div>
       <div className="mt-3 text-left">

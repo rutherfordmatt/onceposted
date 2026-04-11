@@ -226,8 +226,8 @@ export default function PostcardClientPage() {
 
       <div className="px-6 mb-8">
         <div className="max-w-4xl mx-auto">
-          <div 
-            className="perspective-1000 cursor-pointer group"
+          <div
+            className="relative perspective-1000 cursor-pointer group"
             onClick={() => setIsFlipped(!isFlipped)}
           >
             <div 
@@ -243,9 +243,6 @@ export default function PostcardClientPage() {
                   className="w-full h-full object-contain"
                   data-testid="img-postcard-front"
                 />
-                <div className="absolute bottom-4 left-4 z-10">
-                  <NewBadge createdAt={postcard.createdAt} scheduledFor={postcard.scheduledFor} />
-                </div>
                 <Button
                   size="sm"
                   variant="secondary"
@@ -291,6 +288,9 @@ export default function PostcardClientPage() {
                   </div>
                 )}
               </div>
+            </div>
+            <div className="absolute bottom-4 left-4 z-10">
+              <NewBadge createdAt={postcard.createdAt} scheduledFor={postcard.scheduledFor} />
             </div>
           </div>
 
