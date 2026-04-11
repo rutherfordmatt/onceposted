@@ -24,6 +24,7 @@ interface Postcard {
   messageText: string | null;
   createdAt: string;
   updatedAt: string;
+  scheduledFor: string | null;
 }
 
 function cacheBustedUrl(path: string, updatedAt?: string): string {
@@ -64,7 +65,7 @@ function FeaturedPostcard({ postcard }: { postcard: Postcard }) {
               className="w-full h-full object-contain"
             />
             <div className="absolute bottom-4 left-4 z-10">
-              <NewBadge createdAt={postcard.createdAt} />
+              <NewBadge createdAt={postcard.createdAt} scheduledFor={postcard.scheduledFor} />
             </div>
             <Button
               size="sm"
@@ -182,7 +183,7 @@ function ThumbnailGrid({
             loading="lazy"
           />
           <div className="absolute bottom-1 left-1 z-10">
-            <NewBadge createdAt={postcard.createdAt} compact />
+            <NewBadge createdAt={postcard.createdAt} scheduledFor={postcard.scheduledFor} compact />
           </div>
         </button>
       ))}

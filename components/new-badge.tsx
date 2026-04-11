@@ -2,13 +2,14 @@
 
 interface NewBadgeProps {
   createdAt: Date | string;
+  scheduledFor?: Date | string | null;
   compact?: boolean;
 }
 
-export function NewBadge({ createdAt, compact = false }: NewBadgeProps) {
-  const created = new Date(createdAt);
+export function NewBadge({ createdAt, scheduledFor, compact = false }: NewBadgeProps) {
+  const publishDate = scheduledFor ? new Date(scheduledFor) : new Date(createdAt);
   const now = new Date();
-  const diffMs = now.getTime() - created.getTime();
+  const diffMs = now.getTime() - publishDate.getTime();
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
 
   if (diffDays > 7) return null;
