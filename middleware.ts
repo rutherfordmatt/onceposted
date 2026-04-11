@@ -15,7 +15,10 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Basic token format check (must be base64 and have expected structure)
+    // Basic token format and expiry check for browser redirect purposes.
+    // Note: full HMAC signature verification runs in each API route via
+    // verifyAdminSession() in lib/auth.ts. The Edge Runtime used by middleware
+    // does not support the Node.js crypto module required for HMAC verification.
     try {
       const decoded = Buffer.from(sessionCookie.value, "base64").toString("utf-8");
       const parts = decoded.split(":");

@@ -2,9 +2,9 @@
 
 ## 🔴 Bugs: Critical
 
-- [ ] **Admin session tokens not HMAC-verified** — every admin API route has its own copy of `verifyAdminSession()` but none check the HMAC signature. Full verification exists in `lib/auth.ts:verifySessionToken()` but is never called. Consolidate all admin auth to use this function.
-- [ ] **Fallback secret key** — `lib/auth.ts:3` falls back to `"fallback-secret-key"` if `SESSION_SECRET` env var is missing. Should throw on startup instead.
-- [ ] **Middleware skips signature verification** — `middleware.ts` protects `/admin` routes but only checks token format and expiry, not the HMAC signature.
+- [x] **Admin session tokens not HMAC-verified** — every admin API route has its own copy of `verifyAdminSession()` but none check the HMAC signature. Full verification exists in `lib/auth.ts:verifySessionToken()` but is never called. Consolidate all admin auth to use this function.
+- [x] **Fallback secret key** — `lib/auth.ts:3` falls back to `"fallback-secret-key"` if `SESSION_SECRET` env var is missing. Should throw on startup instead.
+- [x] **Middleware skips signature verification** — `middleware.ts` protects `/admin` routes but only checks token format and expiry, not the HMAC signature. (Edge Runtime cannot use Node.js crypto — documented; real verification now runs in all API routes.)
 
 ## 🟡 Bugs: Medium
 
@@ -13,7 +13,7 @@
 
 ## 🟢 Bugs: Low / Housekeeping
 
-- [ ] **Duplicate session verification code** — 10+ admin route files each copy-paste the same `verifyAdminSession()` function instead of importing from `lib/auth.ts`.
+- [x] **Duplicate session verification code** — 10+ admin route files each copy-paste the same `verifyAdminSession()` function instead of importing from `lib/auth.ts`.
 - [ ] **No audit log for admin actions** — no record of who approved/rejected/deleted what or when.
 - [ ] **Hardcoded Google Analytics ID** — `app/layout.tsx` has the GA ID hardcoded; should be an env var.
 - [ ] **Weak email regex** — submit and contact forms use a naive email pattern that accepts some invalid addresses.

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createPostcard, db } from "@/lib/db";
+import { verifyAdminSession } from "@/lib/auth";
 import { postcards } from "@/shared/schema";
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
 import path from "path";
@@ -9,35 +9,6 @@ import { v4 as uuidv4 } from "uuid";
 import { existsSync } from "fs";
 import { eq, and } from "drizzle-orm";
 
-async function verifyAdminSession(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("admin_session");
-
-    if (!sessionCookie?.value) {
-      return false;
-    }
-
-    const decoded = Buffer.from(sessionCookie.value, "base64").toString("utf-8");
-    const parts = decoded.split(":");
-
-    if (parts.length !== 4 || parts[0] !== "admin") {
-      return false;
-    }
-
-    const timestamp = parseInt(parts[1], 10);
-    const now = Date.now();
-    const maxAge = 24 * 60 * 60 * 1000;
-
-    if (isNaN(timestamp) || now - timestamp > maxAge) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function saveToLocal(buffer: Buffer, filename: string): Promise<void> {
   const uploadsDir = path.join(process.cwd(), "public", "uploads", "postcards");

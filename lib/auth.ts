@@ -1,6 +1,22 @@
 import crypto from "crypto";
+import { cookies } from "next/headers";
 
-const SESSION_SECRET = process.env.SESSION_SECRET || "fallback-secret-key";
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET environment variable is not set. The app cannot start without it.");
+}
+
+const SESSION_SECRET = process.env.SESSION_SECRET;
+
+export async function verifyAdminSession(): Promise<boolean> {
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("admin_session");
+    if (!sessionCookie?.value) return false;
+    return verifySessionToken(sessionCookie.value);
+  } catch {
+    return false;
+  }
+}
 
 export function verifySessionToken(token: string): boolean {
   try {
