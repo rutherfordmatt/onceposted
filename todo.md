@@ -1,4 +1,31 @@
-# ONCEPOSTED - Suggested Upgrades
+# ONCEPOSTED - TODO
+
+## 🔴 Bugs: Critical
+
+- [ ] **Admin session tokens not HMAC-verified** — every admin API route has its own copy of `verifyAdminSession()` but none check the HMAC signature. Full verification exists in `lib/auth.ts:verifySessionToken()` but is never called. Consolidate all admin auth to use this function.
+- [ ] **Fallback secret key** — `lib/auth.ts:3` falls back to `"fallback-secret-key"` if `SESSION_SECRET` env var is missing. Should throw on startup instead.
+- [ ] **Middleware skips signature verification** — `middleware.ts` protects `/admin` routes but only checks token format and expiry, not the HMAC signature.
+
+## 🟡 Bugs: Medium
+
+- [ ] **No CSRF protection on admin mutations** — admin POST/DELETE routes have no CSRF token. A malicious page could trigger admin actions if an admin is logged in.
+- [ ] **Cache invalidation uses substring matching** — `lib/cache.ts` image cache `invalidate()` uses `includes()`, which could accidentally invalidate unrelated cached entries.
+
+## 🟢 Bugs: Low / Housekeeping
+
+- [ ] **Duplicate session verification code** — 10+ admin route files each copy-paste the same `verifyAdminSession()` function instead of importing from `lib/auth.ts`.
+- [ ] **No audit log for admin actions** — no record of who approved/rejected/deleted what or when.
+- [ ] **Hardcoded Google Analytics ID** — `app/layout.tsx` has the GA ID hardcoded; should be an env var.
+- [ ] **Weak email regex** — submit and contact forms use a naive email pattern that accepts some invalid addresses.
+
+## ✅ Bugs: Fixed
+
+- [x] **New badge not showing on scheduled postcards** — was using `createdAt` (upload date) instead of `scheduledFor` (publish date)
+- [x] **New badge disappearing on card flip** — badge was inside the 3D transform container; moved outside so it persists through the flip
+
+---
+
+## Suggested Upgrades
 
 ## User Experience
 
@@ -9,7 +36,7 @@
 - [ ] **Keyboard navigation** - Arrow keys to browse through postcards in modal view
 - [ ] **Image zoom** - Click-to-zoom or pinch-to-zoom for viewing fine details
 - [ ] **Infinite scroll** - Load more postcards as user scrolls (for large collections)
-- [ ] **Share buttons** - Social media sharing and copy-link functionality
+- [x] **Share buttons** - Social media sharing and copy-link functionality
 
 ## Collection Features
 
@@ -32,7 +59,7 @@
 - [ ] **Analytics dashboard** - View counts, popular postcards, submission stats
 - [ ] **Export data** - Download postcard metadata as CSV or JSON
 - [ ] **Email notifications** - Get notified when new submissions arrive
-- [ ] **Scheduled publishing** - Queue approved postcards for future display
+- [x] **Scheduled publishing** - Queue approved postcards for future display
 - [ ] **Duplicate detection** - Flag potential duplicate uploads
 
 ## Technical Improvements
