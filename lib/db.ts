@@ -33,7 +33,7 @@ export async function getApprovedPostcards(): Promise<Postcard[]> {
         or(isNull(postcards.scheduledFor), lte(postcards.scheduledFor, now))
       )
     )
-    .orderBy(desc(postcards.createdAt));
+    .orderBy(desc(sql`COALESCE(${postcards.scheduledFor}, ${postcards.createdAt})`));
 
   dataCache.set(POSTCARDS_CACHE_KEY, result, POSTCARDS_CACHE_TTL);
   return result;
