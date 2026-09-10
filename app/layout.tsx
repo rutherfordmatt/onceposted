@@ -31,6 +31,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          defer
+          src="https://analytics.stff.me/script.js"
+          data-website-id="4226f0dd-3609-4962-b89b-1c37f56753bb"
+          data-domains="onceposted.com"
+        />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"
