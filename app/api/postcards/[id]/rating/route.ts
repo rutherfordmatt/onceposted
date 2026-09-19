@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, getPostcardById } from "@/lib/db";
+import { db, getPostcardById, isLivePostcard } from "@/lib/db";
 import { ratings } from "@/shared/schema";
 import { and, eq, avg, count } from "drizzle-orm";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -78,10 +78,7 @@ export async function POST(
     }
 
     const postcard = await getPostcardById(id);
-    const isLive =
-      postcard?.status === "APPROVED" &&
-      (!postcard.scheduledFor || new Date(postcard.scheduledFor) <= new Date());
-    if (!isLive) {
+    if (!postcard || !isLivePostcard(postcard)) {
       return NextResponse.json({ error: "Postcard not found" }, { status: 404 });
     }
 

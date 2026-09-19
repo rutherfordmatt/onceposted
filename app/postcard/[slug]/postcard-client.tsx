@@ -1,33 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ImageOff, RefreshCw, RotateCcw, MapPin, Calendar, ArrowLeft, Share2 } from "lucide-react";
+import { RotateCcw, MapPin, Calendar, ArrowLeft, Share2 } from "lucide-react";
 import { SiX, SiBluesky, SiThreads, SiInstagram } from "react-icons/si";
 import Link from "next/link";
 import { normalizeImagePath } from "@/lib/image-utils";
 import { NewBadge } from "@/components/new-badge";
 import { StarRating } from "@/components/star-rating";
+import { type PublicPostcard, postcardAlt, postcardHref } from "@/lib/public-postcard";
+import { SITE_URL } from "@/lib/site";
 
-interface Postcard {
-  id: string;
-  slug: string | null;
-  title: string | null;
-  location: string | null;
-  dateMonth: number | null;
-  dateYear: number | null;
-  dateIsUnknown: boolean;
-  submitterName: string;
-  frontThumbPath: string;
-  backThumbPath: string;
-  frontImagePath: string;
-  backImagePath: string;
-  messageText: string | null;
-  createdAt: string;
-  updatedAt: string;
-  scheduledFor: string | null;
-}
+type Postcard = PublicPostcard;
 
 function cacheBustedUrl(path: string, updatedAt?: string): string {
   const normalized = normalizeImagePath(path);
@@ -48,9 +32,7 @@ function formatDate(month: number | null, year: number | null, isUnknown: boolea
 function ShareButtons({ postcard }: { postcard: Postcard }) {
   const [copied, setCopied] = useState(false);
   
-  const pageUrl = typeof window !== "undefined" 
-    ? window.location.href 
-    : "";
+  const pageUrl = `${SITE_URL}${postcardHref(postcard)}`;
   
   const shareTitle = postcard.title || "A vintage postcard";
   const shareText = postcard.location 
@@ -137,79 +119,10 @@ function ShareButtons({ postcard }: { postcard: Postcard }) {
   );
 }
 
-export default function PostcardClientPage() {
-  const params = useParams();
-  const slug = params.slug as string;
-  const [postcard, setPostcard] = useState<Postcard | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Rendered on the server with the postcard already loaded (see page.tsx),
+// so search engines get the full content without running JavaScript.
+export default function PostcardClientPage({ postcard }: { postcard: Postcard }) {
   const [isFlipped, setIsFlipped] = useState(false);
-
-  useEffect(() => {
-    const fetchPostcard = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(`/api/postcard/${slug}`);
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error("Postcard not found");
-          }
-          throw new Error("Failed to load postcard");
-        }
-        const data = await response.json();
-        setPostcard(data);
-
-        if (data.slug && data.slug !== slug) {
-          window.history.replaceState(null, "", `/postcard/${data.slug}`);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchPostcard();
-  }, [slug]);
-
-  useEffect(() => {
-    if (postcard) {
-      const title = postcard.title || "Vintage Postcard";
-      document.title = `${title} | ONCEPOSTED`;
-    }
-  }, [postcard]);
-
-  if (isLoading) {
-    return (
-      <div className="pt-20 pb-16 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="aspect-[4/3] bg-muted animate-pulse rounded-sm" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !postcard) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[80vh] gap-6 px-6">
-        <div className="p-6 rounded-full bg-muted">
-          <ImageOff className="h-12 w-12 text-muted-foreground" />
-        </div>
-        <div className="text-center space-y-2">
-          <h2 className="text-xl font-light text-foreground">Postcard not found</h2>
-          <p className="text-muted-foreground max-w-md">
-            This postcard may have been removed or the link might be incorrect.
-          </p>
-        </div>
-        <Button asChild variant="outline" className="gap-2">
-          <Link href="/collection">
-            <ArrowLeft className="h-4 w-4" />
-            Browse Collection
-          </Link>
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <div className="pt-20 pb-16">
@@ -239,7 +152,7 @@ export default function PostcardClientPage() {
               >
                 <img
                   src={cacheBustedUrl(postcard.frontImagePath, postcard.updatedAt)}
-                  alt={postcard.title || "Vintage postcard front"}
+                  alt={postcardAlt(postcard, "front")}
                   className="w-full h-full object-contain"
                   data-testid="img-postcard-front"
                 />
@@ -263,7 +176,7 @@ export default function PostcardClientPage() {
               >
                 <img
                   src={cacheBustedUrl(postcard.backImagePath, postcard.updatedAt)}
-                  alt="Back of postcard"
+                  alt={postcardAlt(postcard, "back")}
                   className="w-full h-full object-contain"
                   data-testid="img-postcard-back"
                 />

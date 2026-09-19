@@ -5,21 +5,25 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 const inter = Inter({ subsets: ["latin"] });
 
 const GA_MEASUREMENT_ID = "G-W99FH06X3T";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "ONCEPOSTED - Vintage Postcards",
     template: "%s | ONCEPOSTED",
   },
-  description: "Explore our curated collection of vintage postcards from around the world. Each card tells a story of places, people, and moments captured in time.",
+  description: SITE_DESCRIPTION,
   openGraph: {
     title: "ONCEPOSTED - Vintage Postcards",
-    description: "Explore our curated collection of vintage postcards from around the world. Each card tells a story of places, people, and moments captured in time.",
+    description: SITE_DESCRIPTION,
     type: "website",
+    siteName: SITE_NAME,
+    url: "/",
   },
 };
 
