@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Trash2, Loader2, Database, RefreshCw, Edit, RotateCw, Wand2 } from "lucide-react";
+import { ArrowLeft, Trash2, Loader2, Database, RefreshCw, Edit, RotateCw, Wand2, Images } from "lucide-react";
 import { normalizeImagePath } from "@/lib/image-utils";
 
 interface Postcard {
@@ -40,6 +40,26 @@ export default function ManagePostcards() {
   const [rotatingIds, setRotatingIds] = useState<Set<string>>(new Set());
   const [fixingIds, setFixingIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const regenerateThumbnails = async () => {
+    setIsRegenerating(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/admin/regenerate-thumbnails", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to regenerate thumbnails");
+      setNotice(`Regenerated ${data.regenerated} thumbnails for ${data.postcards} postcards.`);
+      if (data.errors.length) setError(data.errors.join(". "));
+      await fetchPostcards();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to regenerate thumbnails");
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
 
   const fetchPostcards = async () => {
     setIsLoading(true);
@@ -152,6 +172,7 @@ export default function ManagePostcards() {
       APPROVED: "bg-green-500/20 text-green-400",
       PENDING: "bg-yellow-500/20 text-yellow-400",
       REJECTED: "bg-red-500/20 text-red-400",
+      DRAFT: "bg-slate-500/20 text-slate-400",
     };
     return (
       <span className={`px-2 py-0.5 rounded text-xs font-medium ${colors[status] || "bg-muted text-muted-foreground"}`}>
@@ -194,6 +215,21 @@ export default function ManagePostcards() {
             </p>
           </div>
         </div>
+        <div className="flex gap-2">
+        <Button
+          variant="outline"
+          onClick={regenerateThumbnails}
+          disabled={isRegenerating}
+          title="Rebuild all thumbnails from the full-size images, without cropping"
+          data-testid="button-regenerate-thumbnails"
+        >
+          {isRegenerating ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Images className="mr-2 h-4 w-4" />
+          )}
+          Regenerate thumbnails
+        </Button>
         <Button 
           variant="outline" 
           onClick={fetchPostcards}
@@ -203,7 +239,14 @@ export default function ManagePostcards() {
           <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
+        </div>
       </div>
+
+      {notice && (
+        <div className="p-4 rounded-md bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-sm" data-testid="text-notice">
+          {notice}
+        </div>
+      )}
 
       {error && (
         <div className="p-4 rounded-md bg-destructive/10 text-destructive text-sm" data-testid="text-error">
@@ -301,7 +344,7 @@ export default function ManagePostcards() {
                       src={normalizeImagePath(postcard.frontThumbPath)}
                       alt={postcard.title || "Postcard"}
                       fill
-                      className="object-cover"
+                      className="object-contain"
                       sizes="64px"
                     />
                   </div>

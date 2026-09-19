@@ -15,8 +15,9 @@ Your session lasts 24 hours. You can log out anytime using the logout button in 
 The dashboard provides access to five main areas:
 
 - **Upload Postcard** - Add new postcards manually
+- **Batch Upload** - Upload many postcards at once as drafts
+- **Staging** - Check drafts and schedule them into the weekly queue
 - **Metadata Inbox** - Edit postcards that are missing titles, locations, or dates
-- **Moderation Queue** - Review and approve/reject visitor submissions
 - **Manage Database** - View all postcards and bulk delete test cards
 - **Seed Import** - Bulk import postcards from folders
 
@@ -37,6 +38,38 @@ Postcards uploaded by admin are automatically approved and appear on the site im
 
 ---
 
+## Batch Upload and Staging
+
+Use this to add lots of postcards at once while keeping the one-a-week drip feed.
+
+### Step 1: Batch Upload
+
+1. Click **Batch Upload** from the dashboard
+2. Drop all your front and back images in at once (or click to choose them)
+3. Fronts and backs are paired by filename. Any of these work:
+   - `Cardiff Castle - front.jpg` + `Cardiff Castle - back.jpg`
+   - `London Bridge (1).png` + `London Bridge (2).png` — (1) is the front
+   - `card001-f.jpg` + `card001-b.jpg`
+   - `Honfleur.jpg` + `Honfleur.png` — paired, but flagged so you can check which side is which
+4. The title comes from the filename. A year at the end (e.g. `Belfast - 1961`) fills in the year
+5. Check each pair: fix titles, use the ⇄ button to swap front/back, or remove a pair
+6. Images that couldn't be paired are listed separately — drop in the missing side, or tick two and click **Pair selected**
+7. Click **Upload as drafts**. Keep the page open until it finishes
+
+Drafts are **not** public and don't take a slot in the schedule.
+
+### Step 2: Staging
+
+1. Click **Staging** from the dashboard (the badge shows how many drafts are waiting)
+2. For each draft, check the title, location, year and "Submitted by" name. Changes save when you leave a field
+3. Each draft is given its own weekly slot: 7 days after the most recent postcard, so they stay on the same weekday. Gaps in the queue are filled first. Change the date if you like — you'll get a warning if a postcard is less than a week from another one
+4. Click **Schedule** on one draft, or tick several and click **Schedule selected**
+5. Scheduled postcards move to the **Scheduled Queue** and go live at 9:00 AM on their date
+
+Use **Edit** to open the full editor (rotate images, add message text, etc.).
+
+---
+
 ## Editing Postcard Metadata
 
 1. Click **Metadata Inbox** from the dashboard
@@ -47,18 +80,6 @@ Postcards uploaded by admin are automatically approved and appear on the site im
    - Date (month/year)
    - Message text
 4. Click **Save** to update
-
----
-
-## Moderating Visitor Submissions
-
-1. Click **Moderation Queue** from the dashboard
-2. Review pending submissions from visitors
-3. Use the search bar to filter by submitter name or email
-4. For each submission, you can:
-   - **Approve** - Makes the postcard visible on the public site
-   - **Reject** - Removes the postcard from the queue
-5. View submitter contact info (name and email) for each submission
 
 ---
 
@@ -79,6 +100,7 @@ The Database Management page lets you view all postcards and bulk delete test ca
 - **Source badges** - Know if a postcard came from admin or visitor submission
 - **Edit button** - Quick access to edit any postcard's metadata
 - **Refresh** - Reload the list after changes
+- **Regenerate thumbnails** - Rebuild every thumbnail from the full-size images. Thumbnails are never cropped, so portrait cards show in full; run this once to fix thumbnails made before that change
 
 **Note:** Deleting a postcard permanently removes it and its images from storage. This cannot be undone.
 
@@ -90,7 +112,7 @@ This feature lets you import many postcards at once.
 
 ### Step 1: Prepare Your Images
 
-1. In the Replit Files panel, find the `seed` folder
+1. On the server, find the `seed` folder in the project directory
 2. Place front images in `seed/front/`
 3. Place back images in `seed/back/`
 
@@ -121,13 +143,14 @@ Imported postcards are automatically approved and visible on the site.
 
 - **Formats accepted:** JPG, JPEG, PNG
 - **Maximum size:** 10MB per image
-- **Thumbnails:** Generated automatically (400x300)
+- **Thumbnails:** Generated automatically, scaled to fit 400px without cropping (portrait cards stay portrait)
 
 ---
 
 ## Rate Limiting
 
-Visitor submissions are limited to 5 per 15 minutes per IP address. This prevents spam. Admin uploads are not rate limited.
+- Admin login: 10 attempts per 15 minutes per IP address (and 100 per hour across the whole site). If you get locked out, wait and try again.
+- Ratings: each visitor gets one rating per postcard (changing it replaces the old one).
 
 ---
 
@@ -135,5 +158,4 @@ Visitor submissions are limited to 5 per 15 minutes per IP address. This prevent
 
 - Keep the seed folders empty after importing to avoid duplicate imports
 - Use descriptive filenames - they help when matching front/back pairs
-- Check the Moderation Queue regularly for new visitor submissions
 - The site defaults to dark theme but visitors can toggle to light mode

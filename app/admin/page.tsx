@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogOut, Settings, Image, Upload, Inbox, FolderInput, Loader2, Check, AlertCircle, Database, MessageSquare, Calendar } from "lucide-react";
+import { LogOut, Settings, Image, Upload, Inbox, FolderInput, Loader2, Check, AlertCircle, Database, MessageSquare, Calendar, Images, ClipboardList } from "lucide-react";
 
 interface ImportResult {
   created: number;
@@ -19,6 +19,14 @@ export default function AdminDashboard() {
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [draftCount, setDraftCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/staging")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setDraftCount(data.drafts.length))
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -163,6 +171,45 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
+        <Card className="hover-elevate cursor-pointer" onClick={() => router.push("/admin/batch")} data-testid="card-batch">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Images className="h-5 w-5" />
+              Batch Upload
+            </CardTitle>
+            <CardDescription>
+              Upload many postcards at once
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Pairs fronts and backs by filename and saves them as drafts.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="hover-elevate cursor-pointer" onClick={() => router.push("/admin/staging")} data-testid="card-staging">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              Staging
+              {draftCount !== null && draftCount > 0 && (
+                <span className="ml-auto px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-medium" data-testid="text-draft-count">
+                  {draftCount}
+                </span>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Check drafts and schedule them
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Review titles and names, pick publish dates, then add to the queue.
+            </p>
+          </CardContent>
+        </Card>
+
         <Card className="hover-elevate cursor-pointer" onClick={() => router.push("/admin/inbox")} data-testid="card-inbox">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -176,23 +223,6 @@ export default function AdminDashboard() {
           <CardContent>
             <p className="text-sm text-muted-foreground">
               Fill in title, location, and date for postcards.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover-elevate cursor-pointer" onClick={() => router.push("/admin/moderation")} data-testid="card-moderation">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Image className="h-5 w-5" />
-              Moderation Queue
-            </CardTitle>
-            <CardDescription>
-              Review pending submissions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Approve or reject visitor submissions.
             </p>
           </CardContent>
         </Card>

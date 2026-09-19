@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { ImageOff, RefreshCw, RotateCcw, MapPin, Calendar, ChevronRight, Mail, ExternalLink } from "lucide-react";
+import { ImageOff, RefreshCw, RotateCcw, MapPin, Calendar, Mail, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { normalizeImagePath } from "@/lib/image-utils";
 import { NewBadge } from "@/components/new-badge";
@@ -169,22 +169,27 @@ function ThumbnailGrid({
         <button
           key={postcard.id}
           onClick={() => onSelect(postcard)}
-          className={`relative aspect-[4/3] overflow-hidden rounded-sm transition-all duration-300 ${
+          className={`relative aspect-[4/3] overflow-hidden rounded-sm flex items-center justify-center [container-type:inline-size] transition-all duration-300 ${
             selectedId === postcard.id 
               ? "ring-2 ring-foreground ring-offset-2 ring-offset-background opacity-100" 
               : "opacity-60 hover:opacity-100"
           }`}
           data-testid={`thumb-postcard-${postcard.id}`}
         >
-          <img
-            src={cacheBustedUrl(postcard.frontThumbPath, postcard.updatedAt)}
-            alt={postcard.title || "Postcard thumbnail"}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-          <div className="absolute bottom-1 left-1 z-10">
-            <NewBadge createdAt={postcard.createdAt} scheduledFor={postcard.scheduledFor} compact />
-          </div>
+          {/* Sized in container units so the whole card fits the 4:3 cell uncropped,
+              and the badge sits on the card rather than beside a portrait one. */}
+          <span className="relative inline-block">
+            <img
+              src={cacheBustedUrl(postcard.frontThumbPath, postcard.updatedAt)}
+              alt={postcard.title || "Postcard thumbnail"}
+              className="block rounded-sm"
+              style={{ maxWidth: "100cqw", maxHeight: "75cqw" }}
+              loading="lazy"
+            />
+            <span className="absolute bottom-1 left-1 z-10">
+              <NewBadge createdAt={postcard.createdAt} scheduledFor={postcard.scheduledFor} compact />
+            </span>
+          </span>
         </button>
       ))}
     </div>
@@ -271,15 +276,9 @@ export default function HomePage() {
         <div className="text-center space-y-3">
           <h1 className="text-3xl font-light text-foreground">No postcards yet</h1>
           <p className="text-muted-foreground max-w-md text-lg font-light">
-            Be the first to share a vintage postcard from your collection.
+            New postcards are added every week. Check back soon.
           </p>
         </div>
-        <Button asChild size="lg" className="gap-2">
-          <Link href="/submit">
-            Submit a Postcard
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </Button>
       </div>
     );
   }

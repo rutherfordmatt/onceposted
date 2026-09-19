@@ -2,10 +2,8 @@ node_modules/
 dist/
 .next/
 .env
-.replit
-.agents
-.local
-.config
-replit.nix
 .DS_Store
 tsconfig.tsbuildinfo
+
+# Uploaded postcard images live on the server, not in git
+public/uploads/postcards/
