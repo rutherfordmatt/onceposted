@@ -7,6 +7,7 @@ import Link from "next/link";
 import { normalizeImagePath } from "@/lib/image-utils";
 import { NewBadge } from "@/components/new-badge";
 import { StarRating } from "@/components/star-rating";
+import { WeeklyNotice } from "@/components/weekly-notice";
 
 interface Postcard {
   id: string;
@@ -285,6 +286,7 @@ export default function HomePage() {
 
   return (
     <div className="pt-16 pb-16">
+      <WeeklyNotice />
       <div className="px-6 mb-16">
         {featuredPostcard && (
           <FeaturedPostcard postcard={featuredPostcard} />
