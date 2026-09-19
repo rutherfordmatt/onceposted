@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, serial, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -58,11 +58,18 @@ export const contactMessages = pgTable("contact_messages", {
 
 export type ContactMessage = typeof contactMessages.$inferSelect;
 
-export const ratings = pgTable("ratings", {
-  id: serial("id").primaryKey(),
-  postcardId: varchar("postcard_id").notNull(),
-  rating: integer("rating").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const ratings = pgTable(
+  "ratings",
+  {
+    id: serial("id").primaryKey(),
+    postcardId: varchar("postcard_id").notNull(),
+    rating: integer("rating").notNull(),
+    // Anonymous per-browser id (from the visitor_id cookie). One rating per
+    // visitor per postcard; re-rating replaces it. Null on legacy rows.
+    voterKey: varchar("voter_key", { length: 64 }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("ratings_postcard_voter_idx").on(table.postcardId, table.voterKey)]
+);
 
 export type Rating = typeof ratings.$inferSelect;

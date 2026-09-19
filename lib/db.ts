@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { eq, desc, or, like, and, isNull, lte, gt, asc, sql } from "drizzle-orm";
 import { postcards, type Postcard, type InsertPostcard } from "@/shared/schema";
 import { dataCache } from "@/lib/cache";
+import { dayKey, latestDayKey, nextPublishSlots, publishDateFor } from "@/lib/schedule";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -53,34 +54,35 @@ export async function getScheduledPostcards(): Promise<Postcard[]> {
     .orderBy(asc(postcards.scheduledFor));
 }
 
-export async function getNextAvailableSlot(): Promise<string> {
-  const now = new Date();
-  const [latest] = await db
-    .select({ scheduledFor: postcards.scheduledFor })
+export async function getDraftPostcards(): Promise<Postcard[]> {
+  return db
+    .select()
     .from(postcards)
-    .where(gt(postcards.scheduledFor, now))
-    .orderBy(desc(postcards.scheduledFor))
-    .limit(1);
+    .where(eq(postcards.status, "DRAFT"))
+    .orderBy(asc(postcards.createdAt));
+}
 
-  const baseDate = latest?.scheduledFor ? new Date(latest.scheduledFor) : now;
-  const nextDay = new Date(baseDate);
-  nextDay.setDate(nextDay.getDate() + 1);
-  nextDay.setHours(9, 0, 0, 0);
-  return nextDay.toISOString();
+// Publish date of the most recent postcard that is already live.
+export async function getLatestPublishedDate(): Promise<Date | null> {
+  const [latest] = await getApprovedPostcards();
+  return latest ? latest.scheduledFor ?? latest.createdAt : null;
+}
+
+export async function getNextAvailableSlot(): Promise<string> {
+  const scheduled = await getScheduledPostcards();
+  const scheduledDates = scheduled.map((p) => p.scheduledFor);
+  const [slot] = nextPublishSlots({
+    anchorKey: latestDayKey([...scheduledDates, await getLatestPublishedDate()]),
+    takenKeys: scheduledDates.map((d) => dayKey(new Date(d!))),
+    count: 1,
+  });
+  return publishDateFor(slot).toISOString();
 }
 
 export async function getAllPostcards(): Promise<Postcard[]> {
   return db
     .select()
     .from(postcards)
-    .orderBy(desc(postcards.createdAt));
-}
-
-export async function getPendingPostcards(): Promise<Postcard[]> {
-  return db
-    .select()
-    .from(postcards)
-    .where(eq(postcards.status, "PENDING"))
     .orderBy(desc(postcards.createdAt));
 }
 

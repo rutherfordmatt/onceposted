@@ -1,20 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPostcard, getAllPostcards } from "@/lib/db";
 import { verifyAdminSession } from "@/lib/auth";
-import sharp from "sharp";
+import { processAndSavePostcardImages, ACCEPTED_MIME_TYPES, MAX_FILE_SIZE } from "@/lib/postcard-images";
 import { v4 as uuidv4 } from "uuid";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-
-const ACCEPTED_MIME_TYPES = ["image/jpeg", "image/jpg", "image/png"];
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-async function saveToLocal(buffer: Buffer, filename: string): Promise<void> {
-  const uploadsDir = path.join(process.cwd(), "public", "uploads", "postcards");
-  await mkdir(uploadsDir, { recursive: true });
-  await writeFile(path.join(uploadsDir, filename), buffer);
-}
-
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,55 +54,33 @@ export async function POST(request: NextRequest) {
 
     const id = uuidv4();
 
-    const frontRawBuffer = Buffer.from(await frontImage.arrayBuffer());
-    const backRawBuffer = Buffer.from(await backImage.arrayBuffer());
+    const imagePaths = await processAndSavePostcardImages(
+      id,
+      Buffer.from(await frontImage.arrayBuffer()),
+      Buffer.from(await backImage.arrayBuffer())
+    );
 
-    const frontBuffer = await sharp(frontRawBuffer)
-      .rotate()
-      .jpeg({ quality: 90 })
-      .toBuffer();
-
-    const backBuffer = await sharp(backRawBuffer)
-      .rotate()
-      .jpeg({ quality: 90 })
-      .toBuffer();
-
-    const frontThumbBuffer = await sharp(frontBuffer)
-      .resize(400, 300, { fit: "cover" })
-      .jpeg({ quality: 80 })
-      .toBuffer();
-
-    const backThumbBuffer = await sharp(backBuffer)
-      .resize(400, 300, { fit: "cover" })
-      .jpeg({ quality: 80 })
-      .toBuffer();
-
-    await Promise.all([
-      saveToLocal(frontBuffer, `${id}-front.jpg`),
-      saveToLocal(backBuffer, `${id}-back.jpg`),
-      saveToLocal(frontThumbBuffer, `${id}-front-thumb.jpg`),
-      saveToLocal(backThumbBuffer, `${id}-back-thumb.jpg`),
-    ]);
-
+    // Batch uploads arrive as drafts: hidden from the public site and the
+    // schedule until they are reviewed and scheduled from the staging page.
+    const isDraft = formData.get("draft") === "true";
+    const titleValue = (formData.get("title") as string | null)?.trim() || null;
+    const dateYearValue = parseInt((formData.get("dateYear") as string | null) ?? "", 10);
     const scheduledForValue = formData.get("scheduledFor") as string | null;
 
     const postcard = await createPostcard({
       id,
-      status: "APPROVED",
+      status: isDraft ? "DRAFT" : "APPROVED",
       source: "ADMIN",
-      title: null,
+      title: titleValue,
       location: null,
       dateMonth: null,
-      dateYear: null,
+      dateYear: isNaN(dateYearValue) ? null : dateYearValue,
       dateIsUnknown: false,
       submitterName: "Admin",
       submitterEmail: null,
       messageText: null,
-      scheduledFor: scheduledForValue ? new Date(scheduledForValue) : null,
-      frontImagePath: `/api/images/${id}-front.jpg`,
-      backImagePath: `/api/images/${id}-back.jpg`,
-      frontThumbPath: `/api/images/${id}-front-thumb.jpg`,
-      backThumbPath: `/api/images/${id}-back-thumb.jpg`,
+      scheduledFor: !isDraft && scheduledForValue ? new Date(scheduledForValue) : null,
+      ...imagePaths,
     });
 
     return NextResponse.json(postcard, { status: 201 });

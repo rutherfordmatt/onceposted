@@ -79,8 +79,12 @@ export async function PATCH(
       );
     }
 
-    const newTitle = body.title ?? postcard.title;
-    const newLocation = body.location ?? postcard.location;
+    // undefined = leave unchanged; null = clear the field
+    const pick = <K extends keyof typeof postcard>(key: K) =>
+      body[key] !== undefined ? body[key] : postcard[key];
+
+    const newTitle = pick("title");
+    const newLocation = pick("location");
 
     let scheduledFor = postcard.scheduledFor;
     if (body.scheduledFor !== undefined) {
@@ -90,10 +94,10 @@ export async function PATCH(
     const updated = await updatePostcard(id, {
       title: newTitle,
       location: newLocation,
-      dateMonth: body.dateMonth ?? postcard.dateMonth,
-      dateYear: body.dateYear ?? postcard.dateYear,
+      dateMonth: pick("dateMonth"),
+      dateYear: pick("dateYear"),
       dateIsUnknown: body.dateIsUnknown !== undefined ? body.dateIsUnknown : postcard.dateIsUnknown,
-      messageText: body.messageText ?? postcard.messageText,
+      messageText: pick("messageText"),
       submitterName: body.submitterName ?? postcard.submitterName,
       scheduledFor,
     });

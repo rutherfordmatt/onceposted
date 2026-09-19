@@ -1,31 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, getPostcardById } from "@/lib/db";
 import { ratings } from "@/shared/schema";
-import { eq, avg, count } from "drizzle-orm";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { and, eq, avg, count } from "drizzle-orm";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { v4 as uuidv4 } from "uuid";
+
+const VISITOR_COOKIE = "visitor_id";
+const VISITOR_ID_PATTERN = /^[0-9a-f-]{36}$/;
+
+function getVisitorId(request: NextRequest): string | null {
+  const value = request.cookies.get(VISITOR_COOKIE)?.value;
+  return value && VISITOR_ID_PATTERN.test(value) ? value : null;
+}
+
+async function getRatingSummary(postcardId: string, visitorId: string | null) {
+  const [row] = await db
+    .select({ average: avg(ratings.rating), count: count() })
+    .from(ratings)
+    .where(eq(ratings.postcardId, postcardId));
+
+  let yourRating: number | null = null;
+  if (visitorId) {
+    const [own] = await db
+      .select({ rating: ratings.rating })
+      .from(ratings)
+      .where(and(eq(ratings.postcardId, postcardId), eq(ratings.voterKey, visitorId)))
+      .limit(1);
+    yourRating = own?.rating ?? null;
+  }
+
+  return {
+    average: row?.average ? parseFloat(row.average) : 0,
+    count: row?.count ?? 0,
+    yourRating,
+  };
+}
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const summary = await getRatingSummary(id, getVisitorId(request));
 
-    const result = await db
-      .select({
-        average: avg(ratings.rating),
-        count: count(),
-      })
-      .from(ratings)
-      .where(eq(ratings.postcardId, id));
-
-    const row = result[0];
-    return NextResponse.json({
-      average: row?.average ? parseFloat(row.average) : 0,
-      count: row?.count ?? 0,
-    }, {
+    return NextResponse.json(summary, {
       headers: {
-        "Cache-Control": "public, max-age=30",
+        // Includes this visitor's own rating, so it must not be shared.
+        "Cache-Control": "private, max-age=30",
       },
     });
   } catch (error) {
@@ -39,37 +61,52 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const rateLimit = checkRateLimit(`rating:${ip}`, { maxRequests: 30, windowMs: 60000 });
-    if (!rateLimit.allowed) {
+    const { id } = await params;
+    const ip = getClientIp(request);
+
+    // A cookie-less script gets a fresh visitor id each time, so also cap
+    // ratings per IP, both overall and per postcard.
+    const overall = checkRateLimit(`rating:${ip}`, { maxRequests: 30, windowMs: 60_000 });
+    const perCard = checkRateLimit(`rating:${ip}:${id}`, { maxRequests: 5, windowMs: 24 * 60 * 60_000 });
+    if (!overall.allowed || !perCard.allowed) {
       return NextResponse.json({ error: "Too many ratings, please try again later" }, { status: 429 });
     }
 
-    const { id } = await params;
     const { rating } = await request.json();
-
-    if (!rating || typeof rating !== "number" || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: "Rating must be between 1 and 5" }, { status: 400 });
+    if (typeof rating !== "number" || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return NextResponse.json({ error: "Rating must be a whole number from 1 to 5" }, { status: 400 });
     }
 
-    await db.insert(ratings).values({
-      postcardId: id,
-      rating: Math.round(rating),
-    });
+    const postcard = await getPostcardById(id);
+    const isLive =
+      postcard?.status === "APPROVED" &&
+      (!postcard.scheduledFor || new Date(postcard.scheduledFor) <= new Date());
+    if (!isLive) {
+      return NextResponse.json({ error: "Postcard not found" }, { status: 404 });
+    }
 
-    const result = await db
-      .select({
-        average: avg(ratings.rating),
-        count: count(),
-      })
-      .from(ratings)
-      .where(eq(ratings.postcardId, id));
+    const existingVisitorId = getVisitorId(request);
+    const visitorId = existingVisitorId ?? uuidv4();
 
-    const row = result[0];
-    return NextResponse.json({
-      average: row?.average ? parseFloat(row.average) : 0,
-      count: row?.count ?? 0,
-    });
+    await db
+      .insert(ratings)
+      .values({ postcardId: id, rating, voterKey: visitorId })
+      .onConflictDoUpdate({
+        target: [ratings.postcardId, ratings.voterKey],
+        set: { rating, createdAt: new Date() },
+      });
+
+    const response = NextResponse.json(await getRatingSummary(id, visitorId));
+    if (!existingVisitorId) {
+      response.cookies.set(VISITOR_COOKIE, visitorId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 365 * 2,
+        path: "/",
+      });
+    }
+    return response;
   } catch (error) {
     console.error("Error submitting rating:", error);
     return NextResponse.json({ error: "Failed to submit rating" }, { status: 500 });

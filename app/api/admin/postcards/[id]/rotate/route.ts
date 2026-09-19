@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPostcardById } from "@/lib/db";
 import { verifyAdminSession } from "@/lib/auth";
 import sharp from "sharp";
+import { makeThumbnail } from "@/lib/postcard-images";
 import { thumbnailCache } from "@/lib/cache";
 import { readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
@@ -30,10 +31,7 @@ async function rotateImagesOnDisk(imagePath: string, thumbPath: string): Promise
 
   await writeFile(imageFile, rotatedBuffer);
 
-  const thumbBuffer = await sharp(rotatedBuffer)
-    .resize(400, 300, { fit: "cover" })
-    .jpeg({ quality: 80 })
-    .toBuffer();
+  const thumbBuffer = await makeThumbnail(rotatedBuffer);
 
   await writeFile(thumbFile, thumbBuffer);
 }

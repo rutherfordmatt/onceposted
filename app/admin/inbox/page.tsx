@@ -132,7 +132,7 @@ export default function MetadataInboxPage() {
                       <img
                         src={normalizeImagePath(postcard.frontThumbPath)}
                         alt="Postcard thumbnail"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                         loading="lazy"
                       />
                     </div>

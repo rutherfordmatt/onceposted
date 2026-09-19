@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
-import { LogOut, Shield, Plus, X, Home } from "lucide-react";
+import { LogOut, Shield, X, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -133,19 +133,6 @@ export function Header() {
                 </div>
               </DialogContent>
             </Dialog>
-            <Link
-              href="/submit"
-              className={cn(
-                "px-4 py-2 text-sm font-light tracking-wide transition-colors flex items-center gap-1.5",
-                pathname === "/submit"
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              data-testid="link-nav-submit"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Submit
-            </Link>
             <Link
               href="/contact"
               className={cn(

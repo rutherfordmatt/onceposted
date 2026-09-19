@@ -38,6 +38,7 @@ interface Postcard {
   frontThumbPath: string;
   backThumbPath: string;
   scheduledFor: string | null;
+  status: string;
 }
 
 const MONTHS = [
@@ -61,6 +62,8 @@ export default function EditPostcardPage() {
   const searchParams = useSearchParams();
   const id = params.id as string;
   const fromInbox = searchParams.get("from") === "inbox";
+  const fromStaging = searchParams.get("from") === "staging";
+  const backPath = fromInbox ? "/admin/inbox" : fromStaging ? "/admin/staging" : "/admin";
 
   const [postcard, setPostcard] = useState<Postcard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -231,7 +234,7 @@ export default function EditPostcardPage() {
         throw new Error(data.error || "Failed to delete postcard");
       }
 
-      router.push(fromInbox ? "/admin/inbox" : "/admin");
+      router.push(backPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setIsDeleting(false);
@@ -285,7 +288,7 @@ export default function EditPostcardPage() {
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={() => router.push(fromInbox ? "/admin/inbox" : "/admin")} 
+          onClick={() => router.push(backPath)} 
           data-testid="button-back"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -453,6 +456,12 @@ export default function EditPostcardPage() {
             />
           </div>
 
+          {postcard.status === "DRAFT" ? (
+          <div className="p-3 rounded-md bg-muted text-sm text-muted-foreground flex items-center gap-2" data-testid="text-draft-notice">
+            <Calendar className="h-4 w-4" />
+            This postcard is a draft and isn&apos;t public. Set its publish date from the Staging page.
+          </div>
+          ) : (
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
@@ -490,6 +499,7 @@ export default function EditPostcardPage() {
                 : "No schedule set — postcard is published immediately"}
             </p>
           </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="messageText">Message on Postcard</Label>

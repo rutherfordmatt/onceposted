@@ -90,7 +90,7 @@ export function PostcardGrid({ postcards }: PostcardGridProps) {
               <img
                 src={postcard.frontThumbPath}
                 alt={postcard.title || "Vintage postcard"}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
                 loading="lazy"
                 onLoad={() => handleImageLoad(postcard.id)}
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"

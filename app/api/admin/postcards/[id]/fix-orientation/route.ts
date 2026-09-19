@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPostcardById } from "@/lib/db";
 import { verifyAdminSession } from "@/lib/auth";
 import sharp from "sharp";
+import { makeThumbnail } from "@/lib/postcard-images";
 import { thumbnailCache } from "@/lib/cache";
 import { readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
@@ -31,10 +32,7 @@ async function reprocessImageWithOrientation(
     .jpeg({ quality: 90 })
     .toBuffer();
 
-  const thumbBuffer = await sharp(processedBuffer)
-    .resize(400, 300, { fit: "cover" })
-    .jpeg({ quality: 80 })
-    .toBuffer();
+  const thumbBuffer = await makeThumbnail(processedBuffer);
 
   await writeFile(imageFile, processedBuffer);
   await writeFile(thumbFile, thumbBuffer);

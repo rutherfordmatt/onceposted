@@ -16,7 +16,7 @@
 - [x] **Duplicate session verification code** — 10+ admin route files each copy-paste the same `verifyAdminSession()` function instead of importing from `lib/auth.ts`.
 - [ ] **No audit log for admin actions** — no record of who approved/rejected/deleted what or when.
 - [ ] **Hardcoded Google Analytics ID** — `app/layout.tsx` has the GA ID hardcoded; should be an env var.
-- [ ] **Weak email regex** — submit and contact forms use a naive email pattern that accepts some invalid addresses.
+- [ ] **Weak email regex** — the contact form uses a naive email pattern that accepts some invalid addresses.
 
 ## ✅ Bugs: Fixed
 

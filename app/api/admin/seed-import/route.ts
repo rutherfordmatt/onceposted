@@ -2,19 +2,13 @@ import { NextResponse } from "next/server";
 import { createPostcard, db } from "@/lib/db";
 import { verifyAdminSession } from "@/lib/auth";
 import { postcards } from "@/shared/schema";
-import { readdir, readFile, writeFile, mkdir } from "fs/promises";
+import { processAndSavePostcardImages } from "@/lib/postcard-images";
+import { readdir, readFile } from "fs/promises";
 import path from "path";
-import sharp from "sharp";
 import { v4 as uuidv4 } from "uuid";
 import { existsSync } from "fs";
 import { eq, and } from "drizzle-orm";
 
-
-async function saveToLocal(buffer: Buffer, filename: string): Promise<void> {
-  const uploadsDir = path.join(process.cwd(), "public", "uploads", "postcards");
-  await mkdir(uploadsDir, { recursive: true });
-  await writeFile(path.join(uploadsDir, filename), buffer);
-}
 
 function extractBaseName(filename: string): string {
   const ext = path.extname(filename);
@@ -113,35 +107,11 @@ export async function POST() {
       }
 
       try {
-        const frontRawBuffer = await readFile(frontPath);
-        const backRawBuffer = await readFile(backPath);
-
-        const frontBuffer = await sharp(frontRawBuffer)
-          .rotate()
-          .jpeg({ quality: 90 })
-          .toBuffer();
-
-        const backBuffer = await sharp(backRawBuffer)
-          .rotate()
-          .jpeg({ quality: 90 })
-          .toBuffer();
-
-        const frontThumbBuffer = await sharp(frontBuffer)
-          .resize(400, 300, { fit: "cover" })
-          .jpeg({ quality: 80 })
-          .toBuffer();
-
-        const backThumbBuffer = await sharp(backBuffer)
-          .resize(400, 300, { fit: "cover" })
-          .jpeg({ quality: 80 })
-          .toBuffer();
-
-        await Promise.all([
-          saveToLocal(frontBuffer, `${id}-front.jpg`),
-          saveToLocal(backBuffer, `${id}-back.jpg`),
-          saveToLocal(frontThumbBuffer, `${id}-front-thumb.jpg`),
-          saveToLocal(backThumbBuffer, `${id}-back-thumb.jpg`),
-        ]);
+        const imagePaths = await processAndSavePostcardImages(
+          id,
+          await readFile(frontPath),
+          await readFile(backPath)
+        );
 
         await createPostcard({
           id,
@@ -155,10 +125,7 @@ export async function POST() {
           submitterName: "Admin",
           submitterEmail: null,
           messageText: null,
-          frontImagePath: `/api/images/${id}-front.jpg`,
-          backImagePath: `/api/images/${id}-back.jpg`,
-          frontThumbPath: `/api/images/${id}-front-thumb.jpg`,
-          backThumbPath: `/api/images/${id}-back-thumb.jpg`,
+          ...imagePaths,
         });
 
         result.created++;

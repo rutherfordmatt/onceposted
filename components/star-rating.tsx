@@ -10,15 +10,18 @@ interface StarRatingProps {
 export function StarRating({ postcardId, compact = false }: StarRatingProps) {
   const [average, setAverage] = useState(0);
   const [count, setCount] = useState(0);
+  const [yourRating, setYourRating] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState(-1);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetch(`/api/postcards/${postcardId}/rating`)
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
+        if (!data) return;
         setAverage(data.average || 0);
         setCount(data.count || 0);
+        setYourRating(data.yourRating ?? null);
       })
       .catch(() => {});
   }, [postcardId]);
@@ -32,9 +35,11 @@ export function StarRating({ postcardId, compact = false }: StarRatingProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rating: value }),
       });
+      if (!res.ok) return;
       const data = await res.json();
       setAverage(data.average || 0);
       setCount(data.count || 0);
+      setYourRating(data.yourRating ?? null);
     } catch {
     } finally {
       setSubmitting(false);
@@ -48,6 +53,7 @@ export function StarRating({ postcardId, compact = false }: StarRatingProps) {
       className="inline-flex items-center gap-0.5"
       data-testid={`rating-stars-${postcardId}`}
       onMouseLeave={() => setHoverIndex(-1)}
+      title={yourRating ? `You rated this ${yourRating} star${yourRating !== 1 ? "s" : ""} (click to change)` : undefined}
     >
       {[1, 2, 3, 4, 5].map((star) => {
         const filled = hoverIndex >= 0 ? star <= hoverIndex + 1 : star <= Math.round(average);
