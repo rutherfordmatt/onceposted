@@ -49,6 +49,7 @@ Use this to add lots of postcards at once while keeping the one-a-week drip feed
 3. Fronts and backs are paired by filename. Any of these work:
    - `Cardiff Castle - front.jpg` + `Cardiff Castle - back.jpg`
    - `London Bridge (1).png` + `London Bridge (2).png` — (1) is the front
+   - `Happy Birthday.1.jpg` + `Happy Birthday.2.jpg` — .1 is the front
    - `card001-f.jpg` + `card001-b.jpg`
    - `Honfleur.jpg` + `Honfleur.png` — paired, but flagged so you can check which side is which
 4. The title comes from the filename. A year at the end (e.g. `Belfast - 1961`) fills in the year

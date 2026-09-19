@@ -5,6 +5,7 @@
 //   "Temple Church - front 1.jpg" (trailing number after the side is ignored)
 //   "card001-f.jpg"               + "card001-b.jpg"
 //   "London Bridge (1).png"       + "London Bridge (2).png"   -> (1) is the front
+//   "Happy Birthday.1.jpg"        + "Happy Birthday.2.jpg"    -> .1 is the front
 //   "Honfleur.jpg"                + "Honfleur.png"            -> paired, flagged for a side check
 
 export type Side = "front" | "back";
@@ -50,7 +51,7 @@ export function parseFilename(name: string): ParsedName {
   const sideMatch = stem.match(
     new RegExp(`^(.*?)(?:^|${SEP}+)(front|back)(?:${SEP}*\\(?\\d+\\)?)?$`, "i")
   );
-  const orderMatch = stem.match(/^(.*?)\s*\((\d+)\)$/);
+  const orderMatch = stem.match(/^(.*?)\s*\((\d+)\)$/) ?? stem.match(/^(.+?)\.(\d+)$/);
   const letterMatch = stem.match(new RegExp(`^(.*?)${SEP}+([fb])$`, "i"));
 
   if (sideMatch) {

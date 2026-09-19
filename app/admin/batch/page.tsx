@@ -270,7 +270,8 @@ export default function BatchUploadPage() {
           <CardDescription>
             Fronts and backs are paired by filename, e.g. <code>Cardiff Castle - front.jpg</code> +{" "}
             <code>Cardiff Castle - back.jpg</code>, or <code>London Bridge (1).png</code> +{" "}
-            <code>London Bridge (2).png</code>. Titles come from the filename.
+            <code>London Bridge (2).png</code>, or <code>Happy Birthday.1.jpg</code> +{" "}
+            <code>Happy Birthday.2.jpg</code>. Titles come from the filename.
           </CardDescription>
         </CardHeader>
         <CardContent>
