@@ -28,7 +28,7 @@ Design aesthetic: sleek photography-portfolio style. Dark theme by default, mini
 | `SESSION_SECRET` | yes | Signs admin session cookies (the app refuses to start without it) |
 | `ADMIN_PASSWORD` | yes | Password for the admin login at `/secret-admin` |
 | `PORT` | no | HTTP port (default `5000`) |
-| `NEXT_PUBLIC_SITE_URL` | no | Fallback base URL for social preview links |
+| `NEXT_PUBLIC_SITE_URL` | no | Public site URL for canonical links, sitemap and social previews (default `https://onceposted.com`; read at build time) |
 
 ### Development
 
@@ -81,11 +81,18 @@ Uploaded images are written to **`public/uploads/postcards/`** on the server's l
 - Batch uploads arrive as `DRAFT`s. The staging page (`/admin/staging`) assigns each one a weekly slot and schedules it
 - Slot logic lives in `lib/schedule.ts`: slots are 7 days apart, on the weekday of the most recent postcard, and gaps are filled first
 
+### SEO
+
+- Home, collection and postcard pages are server-rendered, so their content and links are in the initial HTML
+- Grid thumbnails are real links to `/postcard/[slug]`; a plain click still opens the card in place
+- `/sitemap.xml` is generated per request and lists only live postcards (with front/back images); `/robots.txt` points to it and blocks `/admin` and `/api/` (except images)
+- Postcard pages have a descriptive title and description, a canonical URL, descriptive alt text and schema.org `VisualArtwork` + `BreadcrumbList` structured data. Old id-based links redirect (308) to the slug URL
+- Shared helpers: `lib/site.ts` (site URL and description), `lib/public-postcard.ts` (public shape, alt text), `getPublicPostcards()` / `getLivePostcard()` in `lib/db.ts`
+
 ### Caching
 
 - `lib/cache.ts`: 60-second in-memory cache of the public postcard list (invalidated on create/update/delete), plus a small LRU cache of thumbnails
 - `/api/postcards`: `s-maxage=60, stale-while-revalidate=300`
-- `/api/postcard/[slug]`: `s-maxage=3600, stale-while-revalidate=86400`
 - `/api/images/*`: 7 days, or `no-cache` when requested with `?v=` (used after edits)
 
 ### Rate limits (in-memory, per process)

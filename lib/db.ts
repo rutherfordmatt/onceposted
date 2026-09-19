@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { eq, desc, or, like, and, isNull, lte, gt, asc, sql } from "drizzle-orm";
 import { postcards, type Postcard, type InsertPostcard } from "@/shared/schema";
 import { dataCache } from "@/lib/cache";
+import type { PublicPostcard } from "@/lib/public-postcard";
 import { dayKey, latestDayKey, nextPublishSlots, publishDateFor } from "@/lib/schedule";
 
 const pool = new Pool({
@@ -179,4 +180,45 @@ export async function generateAndSetSlug(id: string, title: string | null, locat
     .where(eq(postcards.id, id));
   
   return slug;
+}
+
+// A postcard is public once approved and its publish time (if any) has passed.
+export function isLivePostcard(postcard: Postcard): boolean {
+  return (
+    postcard.status === "APPROVED" &&
+    (!postcard.scheduledFor || new Date(postcard.scheduledFor) <= new Date())
+  );
+}
+
+// Looks up a public postcard by slug (or by id, for old links); null if not live.
+export async function getLivePostcard(slugOrId: string): Promise<Postcard | null> {
+  const postcard = (await getPostcardBySlug(slugOrId)) ?? (await getPostcardById(slugOrId));
+  return postcard && isLivePostcard(postcard) ? postcard : null;
+}
+
+// The JSON-safe public shape: private fields removed, dates as ISO strings.
+export async function toPublicPostcard(postcard: Postcard): Promise<PublicPostcard> {
+  const slug = await ensureSlug(postcard);
+  return {
+    id: postcard.id,
+    slug,
+    title: postcard.title,
+    location: postcard.location,
+    dateMonth: postcard.dateMonth,
+    dateYear: postcard.dateYear,
+    dateIsUnknown: postcard.dateIsUnknown,
+    submitterName: postcard.submitterName,
+    frontThumbPath: postcard.frontThumbPath,
+    backThumbPath: postcard.backThumbPath,
+    frontImagePath: postcard.frontImagePath,
+    backImagePath: postcard.backImagePath,
+    messageText: postcard.messageText,
+    createdAt: postcard.createdAt.toISOString(),
+    updatedAt: postcard.updatedAt.toISOString(),
+    scheduledFor: postcard.scheduledFor ? postcard.scheduledFor.toISOString() : null,
+  };
+}
+
+export async function getPublicPostcards(): Promise<PublicPostcard[]> {
+  return Promise.all((await getApprovedPostcards()).map(toPublicPostcard));
 }
